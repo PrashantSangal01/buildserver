@@ -1,0 +1,372 @@
+#!/bin/bash 
+
+build_reporting(){	
+if [[ $1 = 1 ]];then
+        echo "BUILD FOR $PLATFORM FAILED at $2!"
+	STATUS="FAILED"
+elif [[ $1 = 0 ]];then
+        echo "BUILD FOR $PLATFORM COMPLETED SUCCESSFULLY!"
+	echo "OUTPUT IMAGES ARE STORED AT $IMAGE_DIR "
+	ls $IMAGE_DIR
+	STATUS="PASSED"
+fi	
+
+SERVER_EMAIL_ID=""
+SERVER_EMAIL_PSWD=""
+USER_EMAIL_ID=$USER_EMAIL
+LOG_FILE="${LOGS_DIR}/build_log.txt"
+EMAIL_BODY="image build for $PLATFORM has ${STATUS} .
+Build log is attached in email . 
+Build images can be found at $IMAGE_DIR,
+logs can be found at ${LOGS_DIR}/build_log.txt
+at machine 192.168.3.217"
+EMAIL_SUBJECT="BOARDFARM|${PLATFORM}|BUILD STATUS - ${STATUS}"
+
+#python3 $SOURCE_DIR/../../send_email.py ${SERVER_EMAIL_ID} ${SERVER_EMAIL_PSWD} ${USER_EMAIL_ID} ${LOG_FILE} "${EMAIL_BODY}" "${EMAIL_SUBJECT}"
+
+exit 1 
+}
+
+build_lx2160acex7(){
+	SOC_TYPE=$1
+	RAMSPEED=$2
+	BOOT_MODE=$3
+	RCW_REPO=$4
+	ATF_REPO=$5
+	EDK2_REPO=$6
+	EDK2PLAT_REPO=$7
+	SERDESCONFIG=$8
+	
+	
+	if [ ! -d "$SOURCE_DIR/lx2160a_build" ];then git clone https://github.com/SolidRun/lx2160a_build.git $SOURCE_DIR/lx2160a_build --branch LSDK-19.09-sr-uefi ;fi
+	cd $SOURCE_DIR/lx2160a_build
+	git submodule init
+	#git -c submodule."build/arm-trusted-firmware".update=none submodule update --init --recursive
+	if [ "$RCW_REPO" != "x" ];then git clone $RCW_REPO $SOURCE_DIR/lx2160a_build/rcw;else git submodule update --remote build/rcw; fi
+	if [ "$ATF_REPO" != "x" ];then git clone $ATF_REPO $SOURCE_DIR/lx2160a_build/arm-trusted-firmware;else git submodule update --remote build/arm-trusted-firmware; fi
+	if [ "$EDK2_REPO" != "x" ];then git clone $EDK2_REPO $SOURCE_DIR/lx2160a_build/tianocore/edk2;else git submodule update --remote build/tianocore/edk2; fi
+	if [ "$EDK2PLAT_REPO" != "x" ];then git clone $EDK2PLAT_REPO $SOURCE_DIR/lx2160a_build/tianocore/edk2-platforms;else git submodule update --remote build/tianocore/edk2-platforms; fi
+	
+	git submodule update --remote build/mc-utils
+	git submodule update --remote build/qoriq-mc-binary
+	git submodule update --remote build/tianocore/edk2-non-osi
+	BOOT=sd BOOT_LOADER=uefi BOOTLOADER_ONLY=y DDR_SPEED=$RAMSPEED $SOURCE_DIR/lx2160a_build/runme.sh
+	
+	cp $SOURCE_DIR/lx2160a_build/build/arm-trusted-firmware/build/lx2160acex7/release/*.bin $SOURCE_DIR/lx2160a_build/build/arm-trusted-firmware/build/lx2160acex7/release/*.pbl $IMAGE_DIR/	
+
+	
+}
+
+build_rdb_board(){
+	SOC_TYPE=$1
+	BOOT_MODE=$2
+	RCW_REPO=$3
+	ATF_REPO=$4
+	EDK2_REPO=$5
+	EDK2PLAT_REPO=$6
+	BUILD_TYPE=$7
+	RCW_BRANCH=$8
+	ATF_BRANCH=$9
+	EDK2_BRANCH=${10}
+	EDK2PLAT_BRANCH=${11}
+	RCW_TAG=${12}
+	ATF_TAG=${13}
+	EDK2_TAG=${14}
+	EDK2PLAT_TAG=${15}
+		
+	echo "                                        "
+	echo "**********FIRMWARE BUILD CONFIG*********"	
+	echo "SOC              : ${SOC_TYPE}"	
+	echo "PLATFORM         : ${PLATFORM}"	
+	echo "BOOT MODE        : ${BOOT_MODE}"	
+	echo "UEFI BUILD MODE  : ${BUILD_TYPE}"	
+	echo "RCW REPO         : ${RCW_REPO}"	
+	echo "RCW BRANCH       : ${RCW_BRANCH}"	
+	echo "RCW TAG          : ${RCW_TAG}"	
+	echo "ATF REPO         : ${ATF_REPO}"	
+	echo "ATF BRANCH       : ${ATF_BRANCH}"	
+	echo "ATF TAG          : ${ATF_TAG}"	
+	echo "EDK2 REPO        : ${EDK2_REPO}"	
+	echo "EDK2 BRANCH      : ${EDK2_BRANCH}"	
+	echo "EDK2 TAG         : ${EDK2_TAG}"	
+	echo "EDK2-PLAT REPO   : ${EDK2PLAT_REPO}"	
+	echo "EDK2-PLAT BRANCH : ${EDK2PLAT_BRANCH}"	
+	echo "EDK2-PLAT TAG    : ${EDK2PLAT_TAG}"	
+	echo "****************************************"	
+	echo "                                        "
+	#sleep 5
+
+	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
+	if [ ! -d "$SOURCE_DIR/edk2/edk2-platforms" ];then fetch_resource "edk2-platforms" "$EDK2PLAT_REPO" "$EDK2PLAT_BRANCH" "$EDK2PLAT_TAG"; fi
+	mv $SOURCE_DIR/edk2-platforms $SOURCE_DIR/edk2/edk2-platforms
+	if [ ! -d "$SOURCE_DIR/atf" ];then fetch_resource "atf" "$ATF_REPO" "$ATF_BRANCH" "$ATF_TAG"; fi
+        if [ ! -d "$SOURCE_DIR/rcw" ];then fetch_resource "rcw" "$RCW_REPO" "$RCW_BRANCH" "$RCW_TAG"; fi
+
+        echo "cloning of repositories done!"
+        echo " "
+        echo "setting up toolchain.."
+        if [ ! -d "$SOURCE_DIR/$TOOLCHAIN" ];then fetch_resource "toolchain"; fi
+	
+	cd $SOURCE_DIR
+        export ARCH=arm64
+        export CROSS_COMPILE="$SOURCE_DIR/$TOOLCHAIN/bin/aarch64-linux-gnu-"
+
+        echo "###########BUILDING RCW IMAGE #####################"
+        cd $SOURCE_DIR/rcw
+        cd $PLATFORM
+	make clean 
+	make 
+        if [ $? -ne 0 ];then build_reporting 1 "RCW compilation"; fi
+	echo "###################################################"
+	
+	source $SOURCE_DIR/edk2/edksetup.sh
+	cd $SOURCE_DIR/edk2/Conf
+	rm $SOURCE_DIR/edk2/BuildEnv.sh $SOURCE_DIR/edk2/build_rule.txt $SOURCE_DIR/edk2/tools_def.txt $SOURCE_DIR/edk2/target.txt
+		
+	echo "###########BUILDING BASE TOOLS#####################"
+	cd ..
+	make -C BaseTools clean 
+	make -C BaseTools 
+	if [ $? -ne 0 ];then build_reporting 1 "building basetools"; fi		
+	echo "###################################################"
+		
+	echo "###########BUILDING .FD IMAGE #####################"
+	cd  $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP
+	source $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/Env.cshrc
+	if [ "$PLATFORM" == "ls1046ardb" ] || [ "$PLATFORM" == "lx2160ardb" ] ;then
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE clean 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE 
+	elif [ "$PLATFORM" == "ls1046afrwy" ];then 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE clean 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE 
+	fi
+	if [ $? -ne 0 ];then build_reporting 1 "building .FD (uefi) image"; fi		
+	echo "###################################################"
+	
+	echo "###################################################"
+	echo "##################COMPILING ATF, PBL and FIP ########################"
+	
+	
+	cd $SOURCE_DIR/atf/
+	if [[ "$PLATFORM" == "ls1046ardb" ]];then
+		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPN_1133_5506/rcw_1600_qspiboot.bin $SOURCE_DIR/atf	 #copy rcw to ATF dir
+		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPN_1133_5506/rcw_1600_qspiboot.bin $IMAGE_DIR/             		#copy rcw to $IMAGE_DIR
+		make PLAT=$PLATFORM clean
+		make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=rcw_1600_qspiboot.bin
+		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
+		make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LS1046aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046ARDB_EFI.fd
+		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
+
+		cp $SOURCE_DIR/edk2/Build/LS1046aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046ARDB_EFI.fd $IMAGE_DIR/ #copy .fd iamge
+
+	elif [[ "$PLATFORM" == "lx2160ardb" ]];then 
+		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
+  		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+        make PLAT=$PLATFORM clean
+        make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
+		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
+            make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd
+		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
+			
+		cp $SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge
+		
+	elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
+		cp $SOURCE_DIR/rcw/$PLATFORM/NN_NNQNNPNP_3040_0506/rcw_1600_${BOOT_MODE}boot.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
+  		cp $SOURCE_DIR/rcw/$PLATFORM/NN_NNQNNPNP_3040_0506/rcw_1600_${BOOT_MODE}boot.bin $IMAGE_DIR/             #copy rcw imagedd
+        make PLAT=$PLATFORM clean
+        make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/NN_NNQNNPNP_3040_0506/rcw_1600_${BOOT_MODE}boot.bin
+		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
+            make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LS1046aFrwyPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046AFRWY_EFI.fd
+		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi
+
+		cp $SOURCE_DIR/edk2/Build/LS1046aFrwyPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046AFRWY_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge	
+
+	fi
+		
+		cp $SOURCE_DIR/atf/build/$PLATFORM/release/*.bin $SOURCE_DIR/atf/build/$PLATFORM/release/*.pbl $IMAGE_DIR/
+}
+
+flex_builder(){
+	if [ ! -f "$BUILDSERVER_DIR/${FLEXBUILD_VER}.tgz" ];then echo "FLEXBUILDER not found. Exiting..";build_reporting 1 " linux build" ; fi
+	if [ ! -d "$FLEXBUILD_DIR" ];then tar -xf "$BUILDSERVER_DIR/${FLEXBUILD_VER}.tgz" -C $SOURCE_DIR; fi
+	cd $FLEXBUILD_DIR
+	sed -i "1972s+.*+#+" $FLEXBUILD_DIR/tools/flex-builder
+	sed -i "1973s+.*+#+" $FLEXBUILD_DIR/tools/flex-builder
+	sed -i "1974s+.*+#+" $FLEXBUILD_DIR/tools/flex-builder
+	sed -i "1975s+.*+#+" $FLEXBUILD_DIR/tools/flex-builder
+	sed -i "1977s+.*+#+" $FLEXBUILD_DIR/tools/flex-builder
+	sed -i "194s+.*+linux_repo_url=${LINUX_REPO}+" $FLEXBUILD_DIR/configs/build_lsdk.cfg
+	sed -i "195s+.*+linux_repo_tag=${LINUX_TAG}+" $FLEXBUILD_DIR/configs/build_lsdk.cfg
+	
+	source setup.env 
+	
+	if [ $1 == "linux" ];then
+		echo "***********BUILDING LINUX********"
+		echo "     				"
+		if [[ -z "$LINUX_REPO" ]];then LINUX_REPO="https://github.com/ossdev07/linux.git" ; fi
+		if [[ -z "$LINUX_BRANCH" ]];then LINUX_BRANCH="PS_Linux_Stable_v5.6-Release"; fi
+		if [[ -z "$LINUX_TAG" ]];then LINUX_TAG="LS1046a_v1.0"; fi
+
+		echo "LINUX REPO     : ${LINUX_REPO}"	
+		echo "LINUX BRANCH   : ${LINUX_BRANCH}"	
+		echo "LINUX TAG      : ${LINUX_TAG}"	
+	
+        	fetch_resource "linux" "$LINUX_REPO" "$LINUX_BRANCH" "$LINUX_TAG"
+		mv $SOURCE_DIR/linux  $FLEXBUILD_DIR/packages/linux/.
+		
+		if [[ ! -z "$LINUX_TAG" ]];then
+			cd $FLEXBUILD_DIR/packages/linux/linux
+			git checkout -b "$LINUX_TAG"
+		fi
+		cd $FLEXBUILD_DIR	
+		flex-builder -c linux -a arm64 -m ls1046ardb -f build_lsdk.cfg $LINUX_OPTIONS
+		cp $FLEXBUILD_DIR/build/linux/kernel/arm64/LS/Image $IMAGE_DIR
+	elif [ $1 == "boot-partition" ];then
+		flex-builder -i mkboot -a arm64 $BOOT_PARTITION_OPTIONS
+	elif [ $1 == "rfs" ];then
+		flex-builder -i mkrfs $RFS_OPTIONS
+	fi
+}
+
+fetch_resource(){
+	if [ $1 != "toolchain" ];then
+		RESOURCE_TYPE=$1
+		RESOURCE_REPO=$2
+		RESOURCE_BRANCH=$3
+		RESOURCE_TAG=$4
+	
+		if [ ! -d "$RESOURCE_DIR/$RESOURCE_TYPE" ];then
+			git clone $RESOURCE_REPO --branch $RESOURCE_BRANCH $RESOURCE_DIR/$RESOURCE_TYPE;
+			if [[ ! -z "$RESOURCE_TAG" ]];then cd $RESOURCE_DIR/$RESOURCE_TYPE;git fetch --all --tags;git checkout $RESOURCE_TAG; fi
+		elif [ -d "$RESOURCE_DIR/$RESOURCE_TYPE" ];then #check correct directory
+			cd $RESOURCE_DIR/$RESOURCE_TYPE
+			if [ "$(git config --get remote.origin.url)" == "$RESOURCE_REPO" ];then #check correct repo
+				git stash
+				git fetch --all --tags
+				git reset --hard origin/$RESOURCE_BRANCH
+				git checkout $RESOURCE_BRANCH
+				if [[ ! -z "$RESOURCE_TAG" ]];then git checkout $RESOURCE_TAG; fi
+			else #if repo dosent match user's repo
+				git clone $RESOURCE_REPO --branch $RESOURCE_BRANCH $RESOURCE_DIR/$RESOURCE_TYPE;
+				if [[ ! -z "$RESOURCE_TAG" ]];then cd $RESOURCE_DIR/$RESOURCE_TYPE;git fetch --all --tags;git checkout $RESOURCE_TAG; fi
+			fi	
+		fi
+		if [ $? -ne 0 ];then build_reporting 1 "fetching source code from git"; fi	
+		echo "copying $RESOURCE_TYPE source to $SOURCE_DIR ...."
+		cp -rf $RESOURCE_DIR/$RESOURCE_TYPE $SOURCE_DIR/.
+	elif [ $1 == "toolchain" ];then
+        	if [ ! -f "$RESOURCE_DIR/${TOOLCHAIN}.tar.xz" ];then wget $TOOLCHAIN_URL -P $RESOURCE_DIR; fi
+        	tar -xf "$RESOURCE_DIR/${TOOLCHAIN}.tar.xz" -C $SOURCE_DIR/.
+	else
+		 build_reporting 1 "invalid resource param"
+	fi		
+}
+
+
+if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="DEBUG";echo "BUILD MODE not spcefied, taking default: $BUILD_MODE"; fi
+
+if [[ -z "$BUILD_NAME" ]];then
+	BUILD_NAME="$1_$(date +"%Y_%m_%d_%h_%s")"
+	BUILD_NAME="${BUILD_MODE}_${BUILD_NAME}"
+fi	
+
+PLATFORM=$1
+SKIP_FIRMWARE=$2
+BUILDSERVER_DIR=$PWD
+SOURCE_DIR=$BUILDSERVER_DIR/$BUILD_NAME/source_code
+FLEXBUILD_VER=flexbuild_lsdk2004
+FLEXBUILD_DIR=$SOURCE_DIR/$FLEXBUILD_VER
+IMAGE_DIR=$BUILDSERVER_DIR/$BUILD_NAME/build_images
+LOGS_DIR=$BUILDSERVER_DIR/$BUILD_NAME/logs
+RESOURCE_DIR=$BUILDSERVER_DIR/common_source
+
+
+if [[ -z "$USER_EMAIL" ]];then echo "PLEASE ENTER USER EMAIL ID. exiting...";exit 1; fi
+
+if [[ ! -d $BUILDSERVER_DIR/$BUILD_NAME ]];then mkdir $BUILD_NAME $SOURCE_DIR $IMAGE_DIR $LOGS_DIR; fi
+if [[ ! -d $RESOURCE_DIR ]];then mkdir $RESOURCE_DIR; fi
+
+if [[ -z "$GCCVER" ]];then 
+	echo "GCCVER not specified, taking default, GCC5";
+	GCC_STRING="GCC5"
+	TOOLCHAIN=gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu
+	TOOLCHAIN_URL="https://releases.linaro.org/components/toolchain/binaries/7.3-2018.05/aarch64-linux-gnu/${TOOLCHAIN}.tar.xz"
+elif [[ "$GCCVER" == "4" ]];then
+	echo "GCCVER 4 specified, taking GCC4.9";
+	GCC_STRING="GCC49"
+        TOOLCHAIN=gcc-linaro-4.9-2016.02-x86_64_aarch64-linux-gnu
+	TOOLCHAIN_URL="https://releases.linaro.org/components/toolchain/binaries/4.9-2016.02/aarch64-linux-gnu/${TOOLCHAIN}.tar.xz"
+else
+	echo "GCC version other than 4 and 5 not supported. exiting..";
+	build_reporting 1 "unsupported GCCVER"
+fi
+
+if [[ "$PLATFORM" == "lx2160acex7" ]];then
+	echo "Building Images for cex7 board"
+	#if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="DEBUG";echo "BUILD MODE not spcefied, taking default: $BUILD_MODE"; fi
+	if [[ -z "$RAMSPEED" ]];then RAMSPEED="x";echo "RAMSPEED not spcefied, taking default: $RAMSPEED"; fi	                #default RAM SPEED
+	if [[ -z "$SERDES_CONFIG" ]];then SERDES_CONFIG="x";echo "SERDES not spcefied, taking default: $SERDES_CONFIG"; fi		#default SERDES CONFIG
+	if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="x";echo "BOOTMODE not spcefied, taking default: $BOOT_MODE"; fi 			        #deafult BOOT MODE
+	if [[ -z "$RCW_REPO" ]];then RCW_REPO="x";echo "RCW repository not spcefied, taking default: $RCW_REPO"; fi #default RCW repo	
+	if [[ -z "$ATF_REPO" ]];then ATF_REPO="x";echo "ATF repository not spcefied, taking default: $ATF_REPO"; fi #default ATF repo
+	if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="x";echo "EDK2 repository not spcefied, taking default: $EDK2_REPO"; fi #faultEDK2repo
+	if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="x";echo "EDK-PLAT repo not spcefied,taking default: $EDK2PLAT_REPO"; fi
+	if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="x";echo "BOOTMODE not spcefied, taking default: $BOOT_MODE"; fi 			        #deafult BOOT MODE
+	if [[ -z "$RCW_REPO" ]];then RCW_REPO="x";echo "RCW repository not spcefied, taking default: $RCW_REPO"; fi #default RCW repo	
+	if [[ -z "$ATF_REPO" ]];then ATF_REPO="x";echo "ATF repository not spcefied, taking default: $ATF_REPO"; fi #default ATF repo
+	if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="x";echo "EDK2 repository not spcefied, taking default: $EDK2_REPO"; fi #faultEDK2repo
+	if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="x";echo "EDK-PLAT repo not spcefied,taking default: $EDK2PLAT_REPO"; fi
+	build_lx2160acex7 LX2160 $RAMSPEED $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+
+elif [[ "$PLATFORM" == "lx2160ardb" ]];then
+    echo "Building Images for LX2160ARDB board"
+    if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="DEBUG"; fi
+    if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="flexspi_nor"; fi                             #deafult BOOT MODE
+    if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
+    if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master";echo "RCW branch not spcefied, taking default: $RCW_BRANCH"; fi #default RCW branch
+    if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LX2160 $RAMSPEED $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+
+elif [[ "$PLATFORM" == "ls1046ardb" ]];then
+    echo "Building Images for LS1046ARDB board"
+    if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="DEBUG"; fi
+    if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="qspi"; fi                             #deafult BOOT MODE
+    if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
+    if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master";echo "RCW branch not spcefied, taking default: $RCW_BRANCH"; fi #default RCW branch
+    if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LS1046 $RAMSPEED $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+
+elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
+    echo "Building Images for LS1046ARFWY board"
+    if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="DEBUG"; fi
+    if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="qspi"; fi                             #deafult BOOT MODE
+    if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
+    if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master";echo "RCW branch not spcefied, taking default: $RCW_BRANCH"; fi #default RCW branch
+    if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LS1046 $RAMSPEED $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+fi
+
+
+if [[ ! -z "$LINUX" ]];then 
+	flex_builder "linux"
+fi	
+
+if [[ ! -z "$RFS" ]];then
+	flex_builder "rfs"
+fi	
+build_reporting 0
