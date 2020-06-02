@@ -4,6 +4,7 @@ build_reporting(){
 if [[ $1 = 1 ]];then
         echo "BUILD FOR $PLATFORM FAILED at $2!"
 	STATUS="FAILED"
+	exit 0
 elif [[ $1 = 0 ]];then
         echo "BUILD FOR $PLATFORM COMPLETED SUCCESSFULLY!"
 	echo "OUTPUT IMAGES ARE STORED AT $IMAGE_DIR "
@@ -114,12 +115,17 @@ build_rdb_board(){
 	EDK2_TAG=${14}
 	EDK2PLAT_TAG=${15}
 	RAM_SPEED=${16}
+	SERDESCONFIG=${17}
 		
 	echo "                                        "
 	echo "**********FIRMWARE BUILD CONFIG*********"	
 	echo "SOC              : ${SOC_TYPE}"	
 	echo "PLATFORM         : ${PLATFORM}"	
 	echo "BOOT MODE        : ${BOOT_MODE}"	
+	if [[ "$PLATFORM" == "lx2160acex7" ]];then 
+	echo "DDR SPEED        : ${RAM_SPEED}"	
+	echo "SERDES CONFIG    : ${SERDESCONFIG}"	
+	fi
 	echo "UEFI BUILD MODE  : ${BUILD_TYPE}"	
 	echo "RCW REPO         : ${RCW_REPO}"	
 	echo "RCW BRANCH       : ${RCW_BRANCH}"	
@@ -179,6 +185,9 @@ build_rdb_board(){
 	elif [ "$PLATFORM" == "ls1046afrwy" ];then 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE clean 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE 
+	elif [ "$PLATFORM" == "lx2160acex7" ];then 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE CEX7 $BUILD_TYPE clean 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE CEX7 $BUILD_TYPE 
 	fi
 	if [ $? -ne 0 ];then build_reporting 1 "building .FD (uefi) image"; fi		
 	echo "###################################################"
@@ -220,6 +229,17 @@ build_rdb_board(){
 		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi
 
 		cp $SOURCE_DIR/edk2/Build/LS1046aFrwyPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046AFRWY_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge	
+
+	elif [[ "$PLATFORM" == "lx2160acex7" ]];then
+		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_${RAM_SPEED}_${SERDESCONFIG}_${BOOT_MODE}.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
+  		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_${RAM_SPEED}_${SERDESCONFIG}_${BOOT_MODE}.bin $IMAGE_DIR/             #copy rcw imagedd
+        make PLAT=$PLATFORM clean
+        make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_${RAM_SPEED}_${SERDESCONFIG}_${BOOT_MODE}.bin
+		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
+            make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LX2160aCex7Pkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ACEX7_EFI.fd
+		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi
+
+		cp $SOURCE_DIR/edk2/Build/LX2160aCex7Pkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ACEX7_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge	
 
 	fi
 		
@@ -345,17 +365,17 @@ if [[ "$PLATFORM" == "lx2160acex7" ]];then
     echo "Building Images for cex7 board"
     if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="RELEASE"; fi
     if [[ -z "$BOOT_MODE" ]];then BOOT_MODE="sd"; fi                             #deafult BOOT MODE
-    if [[ -z "$RCW_REPO" ]];then RCW_REPO="x"; fi #default RCW repo
-    if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="x"; fi #default RCW branch
-    if [[ -z "$ATF_REPO" ]];then ATF_REPO="x"; fi #default ATF repo
-    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="x"; fi #default ATF branch
-    if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="x"; fi #faultEDK2repo
-    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="x"; fi #faultEDK2BRANCH
-    if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="x"; fi
-    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="x"; fi
-    if [[ -z "$RAMSPEED" ]];then RAMSPEED="2400"; fi	                #default RAM SPEED
+    if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
+    if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="UEFI_ACPI_SYSTEM_TESTING-CEX7_Porting"; fi #default RCW branch
+    if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_SYSTEM_TESTING-CEX7_Porting"; fi #default ATF branch
+    if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_SYSTEM_TESTING-CEX7_Porting"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_SYSTEM_TESTING-CEX7_Porting"; fi
+    if [[ -z "$RAMSPEED" ]];then RAMSPEED="3200"; fi	                #default RAM SPEED
     if [[ -z "$SERDES_CONFIG" ]];then SERDES_CONFIG="8_5_2"; fi		#default SERDES CONFIG
-    build_lx2160acex7 LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG"| tee -a "$LOGS_DIR/build_log.txt"
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     echo "Building Images for LX2160ARDB board"
