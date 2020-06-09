@@ -166,6 +166,8 @@ build_rdb_board(){
 	echo "###################################################"
 	
 	source $SOURCE_DIR/edk2/edksetup.sh
+	cd $SOURCE_DIR/edk2/
+	git submodule update --init --progress
 	cd $SOURCE_DIR/edk2/Conf
 	rm $SOURCE_DIR/edk2/BuildEnv.sh $SOURCE_DIR/edk2/build_rule.txt $SOURCE_DIR/edk2/tools_def.txt $SOURCE_DIR/edk2/target.txt
 		
@@ -359,7 +361,7 @@ RESOURCE_DIR=$BUILDSERVER_DIR/common_source
 
 #if [[ -z "$USER_EMAIL" ]];then echo "PLEASE ENTER USER EMAIL ID. exiting...";exit 1; fi
 
-check_update
+#check_update
 if [[ ! -d $BUILDSERVER_DIR/$BUILD_NAME ]];then mkdir $BUILD_NAME $SOURCE_DIR $IMAGE_DIR $LOGS_DIR; fi
 if [[ ! -d $RESOURCE_DIR ]];then mkdir $RESOURCE_DIR; fi
 
@@ -440,11 +442,12 @@ fi
 
 if [[ ! -z "$LINUX" ]];then 
 	flex_builder "linux"
-	if [ $? -ne 0 ];then build_reporting 1 " linux compilation";else cp $FLEXBUILD_DIR/build/linux/linux/arm64/LS $IMAGE_DIR/ fi	
+	if [ $? -ne 0 ];then build_reporting 1 " linux compilation";else cp $FLEXBUILD_DIR/build/linux/linux/arm64/LS $IMAGE_DIR/ ;fi	
 fi	
 
 if [[ ! -z "$RFS" ]];then
 	flex_builder "rfs"
-	if [ $? -ne 0 ];then build_reporting 1 " RFS compilation";else cp -rf $FLEXBUILD_DIR/build/rfs/* $IMAGE_DIR/ fi	
-fi	
+	if [ $? -ne 0 ];then build_reporting 1 " RFS compilation";else cp -rf $FLEXBUILD_DIR/build/rfs/* $IMAGE_DIR/ ;fi	
+fi
+
 build_reporting 0
