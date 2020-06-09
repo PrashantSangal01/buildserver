@@ -116,6 +116,7 @@ build_rdb_board(){
 	EDK2PLAT_TAG=${15}
 	RAM_SPEED=${16}
 	SERDESCONFIG=${17}
+	MTDEN=${18}
 		
 	echo "                                        "
 	echo "**********FIRMWARE BUILD CONFIG*********"	
@@ -127,6 +128,7 @@ build_rdb_board(){
 	echo "SERDES CONFIG    : ${SERDESCONFIG}"	
 	fi
 	echo "UEFI BUILD MODE  : ${BUILD_TYPE}"	
+	echo "MTD enabled Linux  : ${MTDEN}"	
 	echo "RCW REPO         : ${RCW_REPO}"	
 	echo "RCW BRANCH       : ${RCW_BRANCH}"	
 	echo "RCW TAG          : ${RCW_TAG}"	
@@ -182,9 +184,33 @@ build_rdb_board(){
 	cd  $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP
 	source $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/Env.cshrc
 	if [ "$PLATFORM" == "ls1046ardb" ] || [ "$PLATFORM" == "lx2160ardb" ] ;then
+		if [ "$PLATFORM" == "ls1046ardb" ];then 
+			if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h"; then
+				sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h 
+			else
+				echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+				sleep 5
+			fi
+		else 
+			if grep -q "#define FSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h"; then
+				sed -i 's/#define FSPI_STATUS.*/#define FSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h 
+			else
+				echo "WARNING: FSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+				sleep 5
+			fi
+		fi
+
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE clean 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE 
 	elif [ "$PLATFORM" == "ls1046afrwy" ];then 
+		if [[ "$MTDEN" == "yes" ]] ;then
+			if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aFrwyPkg/AcpiTables/Platform.h"; then
+				sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aFrwyPkg/AcpiTables/Platform.h
+			else
+				echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+				sleep 5
+			fi
+		fi
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE clean 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE 
 	elif [ "$PLATFORM" == "lx2160acex7" ];then 
@@ -361,7 +387,7 @@ RESOURCE_DIR=$BUILDSERVER_DIR/common_source
 
 #if [[ -z "$USER_EMAIL" ]];then echo "PLEASE ENTER USER EMAIL ID. exiting...";exit 1; fi
 
-#check_update
+check_update
 if [[ ! -d $BUILDSERVER_DIR/$BUILD_NAME ]];then mkdir $BUILD_NAME $SOURCE_DIR $IMAGE_DIR $LOGS_DIR; fi
 if [[ ! -d $RESOURCE_DIR ]];then mkdir $RESOURCE_DIR; fi
 
@@ -408,7 +434,8 @@ elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
-    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     echo "Building Images for LS1046ARDB board"
@@ -422,7 +449,8 @@ elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
-    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
+    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     echo "Building Images for LS1046ARFWY board"
@@ -436,7 +464,8 @@ elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
-    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
+    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
 fi
 
 
