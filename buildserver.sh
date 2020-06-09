@@ -440,9 +440,11 @@ fi
 
 if [[ ! -z "$LINUX" ]];then 
 	flex_builder "linux"
+	if [ $? -ne 0 ];then build_reporting 1 " linux compilation";else cp $FLEXBUILD_DIR/build/linux/linux/arm64/LS $IMAGE_DIR/ fi	
 fi	
 
 if [[ ! -z "$RFS" ]];then
 	flex_builder "rfs"
+	if [ $? -ne 0 ];then build_reporting 1 " RFS compilation";else cp -rf $FLEXBUILD_DIR/build/rfs/* $IMAGE_DIR/ fi	
 fi	
 build_reporting 0
