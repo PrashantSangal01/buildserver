@@ -322,6 +322,22 @@ fetch_resource(){
 	fi		
 }
 
+check_update(){
+
+echo "CHECKING IF UPDATE FOR BUILDSERVER AVAILABLE..."
+    if [[ -n $(git diff origin/master) ]];then
+        echo "Found a new version,updating..."
+        echo "IMPORTANT: RE-RUN THE SCRIPT WITH ARGUMENTS AFTER UPDATE IS COMLETE"
+        git pull --force
+        git checkout master
+        git pull --force
+        echo "Updated succesfully, please re-run the script"
+        exit 1
+    else
+    	echo "Already the latest version."
+    fi
+
+}
 
 if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="RELEASE";echo "BUILD MODE not spcefied, taking default: $BUILD_MODE"; fi
 
@@ -343,6 +359,7 @@ RESOURCE_DIR=$BUILDSERVER_DIR/common_source
 
 #if [[ -z "$USER_EMAIL" ]];then echo "PLEASE ENTER USER EMAIL ID. exiting...";exit 1; fi
 
+check_update
 if [[ ! -d $BUILDSERVER_DIR/$BUILD_NAME ]];then mkdir $BUILD_NAME $SOURCE_DIR $IMAGE_DIR $LOGS_DIR; fi
 if [[ ! -d $RESOURCE_DIR ]];then mkdir $RESOURCE_DIR; fi
 
