@@ -117,6 +117,7 @@ build_rdb_board(){
 	RAM_SPEED=${16}
 	SERDESCONFIG=${17}
 	MTDEN=${18}
+	REV=${19}
 		
 	echo "                                        "
 	echo "**********FIRMWARE BUILD CONFIG*********"	
@@ -127,6 +128,9 @@ build_rdb_board(){
 	echo "DDR SPEED        : ${RAM_SPEED}"	
 	echo "SERDES CONFIG    : ${SERDESCONFIG}"	
 	fi
+	if [[ "$SOC_TYPE" == "LX2160" ]];then 
+	echo "Silicon Revision : v${REV}"	
+	fi	
 	echo "UEFI BUILD MODE  : ${BUILD_TYPE}"	
 	echo "MTD enabled Linux  : ${MTDEN}"	
 	echo "RCW REPO         : ${RCW_REPO}"	
@@ -143,7 +147,7 @@ build_rdb_board(){
 	echo "EDK2-PLAT TAG    : ${EDK2PLAT_TAG}"	
 	echo "****************************************"	
 	echo "                                        "
-
+	exit0
 	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
 	if [ ! -d "$SOURCE_DIR/edk2/edk2-platforms" ];then fetch_resource "edk2-platforms" "$EDK2PLAT_REPO" "$EDK2PLAT_BRANCH" "$EDK2PLAT_TAG"; fi
 	mv $SOURCE_DIR/edk2-platforms $SOURCE_DIR/edk2/edk2-platforms
@@ -161,7 +165,11 @@ build_rdb_board(){
 
         echo "###########BUILDING RCW IMAGE #####################"
         cd $SOURCE_DIR/rcw
-        cd $PLATFORM
+        if [[ "${SOC_TYPE}" == "LX2160" && "${PLATFORM}" == "lx2160ardb" && "$REV" == 2  ]];then
+		cd lx2160ardb_rev2
+	else
+		cd $PLATFORM
+	fi
 	make clean 
 	make 
         if [ $? -ne 0 ];then build_reporting 1 "RCW compilation"; fi
@@ -237,10 +245,19 @@ build_rdb_board(){
 		cp $SOURCE_DIR/edk2/Build/LS1046aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046ARDB_EFI.fd $IMAGE_DIR/ #copy .fd iamge
 
 	elif [[ "$PLATFORM" == "lx2160ardb" ]];then 
-		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
-  		cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+		if [[ "$REV" == 2  ]];then
+			cp $SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
+			cp $SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+		else
+			cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
+			cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+		fi
         make PLAT=$PLATFORM clean
-        make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
+		if [[ "$REV" == 2  ]];then
+			make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
+		else
+			make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
+		fi
 		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
             make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd
 		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
@@ -420,7 +437,9 @@ if [[ "$PLATFORM" == "lx2160acex7" ]];then
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_SYSTEM_TESTING-CEX7_Porting"; fi
     if [[ -z "$RAMSPEED" ]];then RAMSPEED="3200"; fi	                #default RAM SPEED
     if [[ -z "$SERDES_CONFIG" ]];then SERDES_CONFIG="8_5_2"; fi		#default SERDES CONFIG
-    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
+    if [[ -z "$SILICON_REV" ]];then SILICON_REV=1; fi
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     echo "Building Images for LX2160ARDB board"
@@ -435,7 +454,8 @@ elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
-    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$SILICON_REV" ]];then SILICON_REV=1; fi
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     echo "Building Images for LS1046ARDB board"
