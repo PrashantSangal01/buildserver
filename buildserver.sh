@@ -147,7 +147,6 @@ build_rdb_board(){
 	echo "EDK2-PLAT TAG    : ${EDK2PLAT_TAG}"	
 	echo "****************************************"	
 	echo "                                        "
-	exit0
 	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
 	if [ ! -d "$SOURCE_DIR/edk2/edk2-platforms" ];then fetch_resource "edk2-platforms" "$EDK2PLAT_REPO" "$EDK2PLAT_BRANCH" "$EDK2PLAT_TAG"; fi
 	mv $SOURCE_DIR/edk2-platforms $SOURCE_DIR/edk2/edk2-platforms
@@ -448,7 +447,7 @@ elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
     if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master"; fi #default RCW branch
     if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
-    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #default ATF branch
     if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
@@ -464,7 +463,7 @@ elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
     if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master"; fi #default RCW branch
     if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
-    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #default ATF branch
     if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
@@ -479,7 +478,7 @@ elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     if [[ -z "$RCW_REPO" ]];then RCW_REPO="https://github.com/ossdev07/rcw.git"; fi #default RCW repo
     if [[ -z "$RCW_BRANCH" ]];then RCW_BRANCH="master";echo "RCW branch not spcefied, taking default: $RCW_BRANCH"; fi #default RCW branch
     if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
-    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS"; fi #default ATF branch
+    if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #default ATF branch
     if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
     if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
