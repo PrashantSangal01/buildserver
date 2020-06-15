@@ -133,18 +133,30 @@ build_rdb_board(){
 	fi	
 	echo "UEFI BUILD MODE  : ${BUILD_TYPE}"	
 	echo "MTD enabled Linux  : ${MTDEN}"	
-	echo "RCW REPO         : ${RCW_REPO}"	
+        echo "RCW REPO         : ${RCW_REPO}"	
+	if [[ -z $RCW_TAG ]];then
 	echo "RCW BRANCH       : ${RCW_BRANCH}"	
-	echo "RCW TAG          : ${RCW_TAG}"	
+        else
+	echo "RCW TAG          : ${RCW_TAG}"
+        fi	
 	echo "ATF REPO         : ${ATF_REPO}"	
+	if [[ -z $ATF_TAG ]];then
 	echo "ATF BRANCH       : ${ATF_BRANCH}"	
+        else
 	echo "ATF TAG          : ${ATF_TAG}"	
+        fi	
 	echo "EDK2 REPO        : ${EDK2_REPO}"	
+	if [[ -z $EDK2_TAG ]];then
 	echo "EDK2 BRANCH      : ${EDK2_BRANCH}"	
+        else
 	echo "EDK2 TAG         : ${EDK2_TAG}"	
+        fi	
 	echo "EDK2-PLAT REPO   : ${EDK2PLAT_REPO}"	
+	if [[ -z $EDK2PLAT_TAG ]];then
 	echo "EDK2-PLAT BRANCH : ${EDK2PLAT_BRANCH}"	
+        else
 	echo "EDK2-PLAT TAG    : ${EDK2PLAT_TAG}"	
+        fi	
 	echo "****************************************"	
 	echo "                                        "
 	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
