@@ -204,18 +204,22 @@ build_rdb_board(){
 	source $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/Env.cshrc
 	if [ "$PLATFORM" == "ls1046ardb" ] || [ "$PLATFORM" == "lx2160ardb" ] ;then
 		if [ "$PLATFORM" == "ls1046ardb" ];then 
-			if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h"; then
-				sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h 
-			else
-				echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
-				sleep 5
+			if [[ "$MTDEN" == "yes" ]] ;then
+				if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h"; then
+					sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h 
+				else
+					echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+					sleep 5
+				fi
 			fi
 		else 
-			if grep -q "#define FSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h"; then
-				sed -i 's/#define FSPI_STATUS.*/#define FSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h 
-			else
-				echo "WARNING: FSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
-				sleep 5
+			if [[ "$MTDEN" == "yes" ]] ;then
+				if grep -q "#define FSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h"; then
+					sed -i 's/#define FSPI_STATUS.*/#define FSPI_STATUS 0x03/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h 
+				else
+					echo "WARNING: FSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+					sleep 5
+				fi
 			fi
 		fi
 
