@@ -165,16 +165,26 @@ build_rdb_board(){
         else
 	echo "EDK2-NON-OSI TAG    : ${EDK2NONOSI_TAG}"	
         fi	
+	echo "OPTEE REPO         : ${OPTEEREPO}"	
+	if [[ "$SOC_TYPE" == "LX2160" ]];then 
+	   if [[ -z $OPTEETAG ]];then
+	   echo "OPTEE BRANCH       : ${OPTEEBRANCH}"	
+           else
+           echo "OPTEE TAG          : ${OPTEETAG}"
+	   fi	
+	fi	
 	echo "****************************************"	
 	echo "                                        "
-	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
 	if [ ! -d "$SOURCE_DIR/edk2/edk2-non-osi" ];then fetch_resource "edk2-non-osi" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH" "$EDK2NONOSI_TAG"; fi
+	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
 	if [ ! -d "$SOURCE_DIR/edk2/edk2-platforms" ];then fetch_resource "edk2-platforms" "$EDK2PLAT_REPO" "$EDK2PLAT_BRANCH" "$EDK2PLAT_TAG"; fi
 	mv $SOURCE_DIR/edk2-platforms $SOURCE_DIR/edk2/edk2-platforms
+
 	cp -rf $SOURCE_DIR/edk2-non-osi/Drivers $SOURCE_DIR/edk2/edk2-platforms
 	cp -rf $SOURCE_DIR/edk2-non-osi/Emulator $SOURCE_DIR/edk2/edk2-platforms
 	if [ ! -d "$SOURCE_DIR/atf" ];then fetch_resource "atf" "$ATF_REPO" "$ATF_BRANCH" "$ATF_TAG"; fi
         if [ ! -d "$SOURCE_DIR/rcw" ];then fetch_resource "rcw" "$RCW_REPO" "$RCW_BRANCH" "$RCW_TAG"; fi
+	if [ "$SOC_TYPE" == "LX2160" ];then fetch_resource "optee_os" "$OPTEEREPO" "$OPTEEBRANCH" "$OPTEETAG"; fi
 
         echo "cloning of repositories done!"
         echo " "
@@ -235,7 +245,10 @@ build_rdb_board(){
 		fi
 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE clean 
-		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE RDB $BUILD_TYPE
+	        if [ "$SOC_TYPE" == "LX2160" ];then 
+			build_optee "$PLATFORM"  
+		fi
 	elif [ "$PLATFORM" == "ls1046afrwy" ];then 
 		if [[ "$MTDEN" == "yes" ]] ;then
 			if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aFrwyPkg/AcpiTables/Platform.h"; then
@@ -249,14 +262,14 @@ build_rdb_board(){
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE 
 	elif [ "$PLATFORM" == "lx2160acex7" ];then 
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE CEX7 $BUILD_TYPE clean 
-		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE CEX7 $BUILD_TYPE 
+		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE CEX7 $BUILD_TYPE
+		build_optee "$PLATFORM"  
 	fi
 	if [ $? -ne 0 ];then build_reporting 1 "building .FD (uefi) image"; fi		
 	echo "###################################################"
 	
 	echo "###################################################"
 	echo "##################COMPILING ATF, PBL and FIP ########################"
-	
 	
 	cd $SOURCE_DIR/atf/
 	if [[ "$PLATFORM" == "ls1046ardb" ]];then
@@ -270,24 +283,19 @@ build_rdb_board(){
 
 		cp $SOURCE_DIR/edk2/Build/LS1046aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LS1046ARDB_EFI.fd $IMAGE_DIR/ #copy .fd iamge
 
-	elif [[ "$PLATFORM" == "lx2160ardb" ]];then 
+	elif [[ "$PLATFORM" == "lx2160ardb" ]];then
+		make PLAT=$PLATFORM clean
 		if [[ "$REV" == 2  ]];then
 			cp $SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
 			cp $SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+		        make SPD=opteed PLAT=$PLATFORM BOOT_MODE=$BOOT_MODE BL32=tee.bin BL33=$SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd RCW=$SOURCE_DIR/rcw/${PLATFORM}_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin pbl fip
+		        if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
 		else
 			cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $SOURCE_DIR/atf            #copy rcw to ATF dir
 			cp $SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin $IMAGE_DIR/             #copy rcw imagedd
+		        make SPD=opteed PLAT=$PLATFORM BOOT_MODE=$BOOT_MODE BL32=tee.bin BL33=$SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin pbl fip
+		        if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
 		fi
-        make PLAT=$PLATFORM clean
-		if [[ "$REV" == 2  ]];then
-			make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/lx2160ardb_rev2/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
-		else
-			make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_2900_19_5_2.bin
-		fi
-		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
-            make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd
-		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi	
-			
 		cp $SOURCE_DIR/edk2/Build/LX2160aRdbPkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ARDB_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge
 		
 	elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
@@ -308,7 +316,9 @@ build_rdb_board(){
         make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_${RAM_SPEED}_${SERDESCONFIG}_${BOOT_MODE}.bin
 		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
             make PLAT=$PLATFORM fip BL33=$SOURCE_DIR/edk2/Build/LX2160aCex7Pkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ACEX7_EFI.fd
-		if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi
+		
+	       # make SPD=opteed PLAT=$PLATFORM BOOT_MODE=$BOOT_MODE BL32=tee.bin BL33=$SOURCE_DIR/edk2/Build/LX2160aCex7Pkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ACEX7_EFI.fd RCW=$SOURCE_DIR/rcw/$PLATFORM/XGGFF_PP_HHHH_RR_19_5_2/rcw_2000_700_${RAM_SPEED}_${SERDESCONFIG}_${BOOT_MODE}.bin pbl fip
+	    if [ $? -ne 0 ];then build_reporting 1 " .fip compilation"; fi
 
 		cp $SOURCE_DIR/edk2/Build/LX2160aCex7Pkg/${BUILD_TYPE}_${GCC_STRING}/FV/LX2160ACEX7_EFI.fd $IMAGE_DIR/ 		#copy .fd iamge	
 
@@ -410,6 +420,31 @@ echo "CHECKING IF UPDATE FOR BUILDSERVER AVAILABLE..."
 
 }
 
+build_optee(){
+
+	PLATFORM=$1
+	source Env.cshrc
+
+	# Global Defaults
+	ARCH=AARCH64
+        export CROSS_COMPILE="$SOURCE_DIR/$TOOLCHAIN/bin/aarch64-linux-gnu-"
+	export export PATH=$PATH:$SOURCE_DIR/$TOOLCHAIN/bin
+	TARGET_TOOLS=`echo $GCC_ARCH_PREFIX | cut -d _ -f 1`
+	BASE_DIR=../../..
+        echo "Cleaning up the build directory '$BASE_DIR/Build/$1$PKG/'.."
+        rm -rf $BASE_DIR/Build/$1$PKG/*
+	cd $BASE_DIR
+	export EDK_TOOLS_PATH=`pwd`/BaseTools
+	source edksetup.sh BaseTools
+	build -a AARCH64 -t ${GCC_STRING} -p Platform/NXP/StandAloneMm/StandaloneMm.dsc -b $BUILD_MODE
+	cp $SOURCE_DIR/edk2/Build/NXPMmStandalone/${BUILD_MODE}_${GCC_STRING}/FV/BL32_AP_MM.fd $SOURCE_DIR/optee_os
+	
+	make -C $SOURCE_DIR/optee_os/ -j32 ARCH=arm CFG_ARM64_core=y PLATFORM=ls-$PLATFORM CFG_STMM_PATH=BL32_AP_MM.fd CFG_SCTLR_ALIGNMENT_CHECK=n
+	$SOURCE_DIR/$TOOLCHAIN/bin/aarch64-linux-gnu-objcopy -v -O binary $SOURCE_DIR/optee_os/out/arm-plat-ls/core/tee.elf $SOURCE_DIR/optee_os/out/arm-plat-ls/core/tee.bin
+	cp $SOURCE_DIR/optee_os/out/arm-plat-ls/core/tee.bin $SOURCE_DIR/atf
+	cp $SOURCE_DIR/optee_os/out/arm-plat-ls/core/tee.bin $IMAGE_DIR
+}
+
 if [[ -z "$BUILD_MODE" ]];then BUILD_MODE="RELEASE";echo "BUILD MODE not spcefied, taking default: $BUILD_MODE"; fi
 
 if [[ -z "$BUILD_NAME" ]];then
@@ -448,6 +483,9 @@ else
 	echo "GCC version other than 4 and 5 not supported. exiting..";
 	build_reporting 1 "unsupported GCCVER"
 fi
+
+if [[ -z "$OPTEEREPO" ]];then OPTEEREPO="https://github.com/ossdev07/optee_os.git"; fi
+if [[ -z "$OPTEEBRANCH" ]];then OPTEEBRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
 
 if [[ "$PLATFORM" == "lx2160acex7" ]];then
     echo "Building Images for cex7 board"
