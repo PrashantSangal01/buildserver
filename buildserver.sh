@@ -118,6 +118,8 @@ build_rdb_board(){
 	SERDESCONFIG=${17}
 	MTDEN=${18}
 	REV=${19}
+	EDK2NONOSI_REPO=${20}
+	EDK2NONOSI_BRANCH=${21}
 		
 	echo "                                        "
 	echo "**********FIRMWARE BUILD CONFIG*********"	
@@ -157,11 +159,20 @@ build_rdb_board(){
         else
 	echo "EDK2-PLAT TAG    : ${EDK2PLAT_TAG}"	
         fi	
+	echo "EDK2-NON-OSI REPO   : ${EDK2NONOSI_REPO}"	
+	if [[ -z $EDK2NONOSI_TAG ]];then
+	echo "EDK2-NON-OSI BRANCH : ${EDK2NONOSI_BRANCH}"	
+        else
+	echo "EDK2-NON-OSI TAG    : ${EDK2NONOSI_TAG}"	
+        fi	
 	echo "****************************************"	
 	echo "                                        "
 	if [ ! -d "$SOURCE_DIR/edk2" ];then fetch_resource "edk2" "$EDK2_REPO" "$EDK2_BRANCH" "$EDK2_TAG"; fi
+	if [ ! -d "$SOURCE_DIR/edk2/edk2-non-osi" ];then fetch_resource "edk2-non-osi" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH" "$EDK2NONOSI_TAG"; fi
 	if [ ! -d "$SOURCE_DIR/edk2/edk2-platforms" ];then fetch_resource "edk2-platforms" "$EDK2PLAT_REPO" "$EDK2PLAT_BRANCH" "$EDK2PLAT_TAG"; fi
 	mv $SOURCE_DIR/edk2-platforms $SOURCE_DIR/edk2/edk2-platforms
+	cp -rf $SOURCE_DIR/edk2-non-osi/Drivers $SOURCE_DIR/edk2/edk2-platforms
+	cp -rf $SOURCE_DIR/edk2-non-osi/Emulator $SOURCE_DIR/edk2/edk2-platforms
 	if [ ! -d "$SOURCE_DIR/atf" ];then fetch_resource "atf" "$ATF_REPO" "$ATF_BRANCH" "$ATF_TAG"; fi
         if [ ! -d "$SOURCE_DIR/rcw" ];then fetch_resource "rcw" "$RCW_REPO" "$RCW_BRANCH" "$RCW_TAG"; fi
 
@@ -186,11 +197,11 @@ build_rdb_board(){
         if [ $? -ne 0 ];then build_reporting 1 "RCW compilation"; fi
 	echo "###################################################"
 	
-	source $SOURCE_DIR/edk2/edksetup.sh
 	cd $SOURCE_DIR/edk2/
 	git submodule update --init --progress
 	cd $SOURCE_DIR/edk2/Conf
 	rm $SOURCE_DIR/edk2/BuildEnv.sh $SOURCE_DIR/edk2/build_rule.txt $SOURCE_DIR/edk2/tools_def.txt $SOURCE_DIR/edk2/target.txt
+	$SOURCE_DIR/edk2/edksetup.sh
 		
 	echo "###########BUILDING BASE TOOLS#####################"
 	cd ..
@@ -454,7 +465,9 @@ if [[ "$PLATFORM" == "lx2160acex7" ]];then
     if [[ -z "$SERDES_CONFIG" ]];then SERDES_CONFIG="8_5_2"; fi		#default SERDES CONFIG
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
     if [[ -z "$SILICON_REV" ]];then SILICON_REV=1; fi
-    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
+    if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "$RAMSPEED" "$SERDES_CONFIG" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     echo "Building Images for LX2160ARDB board"
@@ -470,7 +483,9 @@ elif [[ "$PLATFORM" == "lx2160ardb" ]];then
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
     if [[ -z "$SILICON_REV" ]];then SILICON_REV=1; fi
-    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
+    if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LX2160 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE" "$SILICON_REV" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     echo "Building Images for LS1046ARDB board"
@@ -485,7 +500,9 @@ elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
-    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
+    if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE" "" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH"| tee -a "$LOGS_DIR/build_log.txt"
 
 elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     echo "Building Images for LS1046ARFWY board"
@@ -500,7 +517,9 @@ elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
     if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
-    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE"| tee -a "$LOGS_DIR/build_log.txt"
+    if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
+    if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    build_rdb_board LS1046 $BOOT_MODE "$RCW_REPO" "$ATF_REPO" "$EDK2_REPO" "$EDK2PLAT_REPO" $BUILD_MODE "$RCW_BRANCH" "$ATF_BRANCH" "$EDK2_BRANCH" "$EDK2PLAT_BRANCH" "$RCW_TAG" "$ATF_TAG" "$EDK2_TAG" "$EDK2PLAT_TAG" "" "" "$MTDDRIVER_LINUX_ENABLE" "" "$EDK2NONOSI_REPO" "$EDK2NONOSI_BRANCH"| tee -a "$LOGS_DIR/build_log.txt"
 fi
 
 
