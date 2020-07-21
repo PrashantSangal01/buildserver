@@ -273,8 +273,8 @@ build_rdb_board(){
 	
 	cd $SOURCE_DIR/atf/
 	if [[ "$PLATFORM" == "ls1046ardb" ]];then
-		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPN_1133_5506/rcw_1600_qspiboot.bin $SOURCE_DIR/atf	 #copy rcw to ATF dir
-		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPN_1133_5506/rcw_1600_qspiboot.bin $IMAGE_DIR/             		#copy rcw to $IMAGE_DIR
+		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPH_1133_5559/rcw_1600_qspiboot.bin $SOURCE_DIR/atf	 #copy rcw to ATF dir
+		cp $SOURCE_DIR/rcw/$PLATFORM/RR_FFSSPPPH_1133_5559/rcw_1600_qspiboot.bin $IMAGE_DIR/             		#copy rcw to $IMAGE_DIR
 		make PLAT=$PLATFORM clean
 		make PLAT=$PLATFORM bl2 pbl BOOT_MODE=$BOOT_MODE RCW=rcw_1600_qspiboot.bin
 		if [ $? -ne 0 ];then build_reporting 1 " .pbl compilation"; fi	
