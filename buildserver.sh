@@ -225,21 +225,31 @@ build_rdb_board(){
 	source $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/Env.cshrc
 	if [ "$PLATFORM" == "ls1046ardb" ] || [ "$PLATFORM" == "lx2160ardb" ] ;then
 		if [ "$PLATFORM" == "ls1046ardb" ];then 
-			if [[ "$MTDEN" == "yes" ]] ;then
+			if [[ "$MTDEN" == "yes" ]] || [[ "$MTDEN" == "YES" ]];then
 				if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h"; then
 					sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aRdbPkg/AcpiTables/Platform.h 
 				else
-					echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
-					sleep 5
+					if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h"; then
+					    sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h 
+					
+					else
+						echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+						sleep 5
+					fi
 				fi
 			fi
 		else 
-			if [[ "$MTDEN" == "yes" ]] ;then
+			if [[ "$MTDEN" == "yes" ]] || [[ "$MTDEN" == "YES" ]] ;then
 				if grep -q "#define FSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h"; then
 					sed -i 's/#define FSPI_STATUS.*/#define FSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LX2160aRdbPkg/AcpiTables/Platform.h 
 				else
-					echo "WARNING: FSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
-					sleep 5
+					if grep -q "#define FSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h"; then
+					    sed -i 's/#define FSPI_STATUS.*/#define FSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h 
+					
+					else
+						echo "WARNING: FSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+						sleep 5
+					fi
 				fi
 			fi
 		fi
@@ -250,12 +260,17 @@ build_rdb_board(){
 			build_optee "$PLATFORM"  
 		fi
 	elif [ "$PLATFORM" == "ls1046afrwy" ];then 
-		if [[ "$MTDEN" == "yes" ]] ;then
+		if [[ "$MTDEN" == "yes" ]]  || [[ "$MTDEN" == "YES" ]];then
 			if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aFrwyPkg/AcpiTables/Platform.h"; then
 				sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/LS1046aFrwyPkg/AcpiTables/Platform.h
 			else
-				echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
-				sleep 5
+			 	if grep -q "#define QSPI_STATUS" "$SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h"; then
+					sed -i 's/#define QSPI_STATUS.*/#define QSPI_STATUS 0x09/' $SOURCE_DIR/edk2/edk2-platforms/Silicon/NXP/LS1046A/Include/AcpiTableInclude/ls1046a.h 
+					
+				else
+					echo "WARNING: QSPI DRIVER DISABLE SUPPORT NOT AVAILABLE"
+					sleep 5
+				fi
 			fi
 		fi
 		$SOURCE_DIR/edk2/edk2-platforms/Platform/NXP/build.sh $SOC_TYPE FRWY $BUILD_TYPE clean 
@@ -534,9 +549,9 @@ elif [[ "$PLATFORM" == "ls1046ardb" ]];then
     if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
     if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #default ATF branch
     if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
-    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
-    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
     if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
     if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
@@ -551,9 +566,9 @@ elif [[ "$PLATFORM" == "ls1046afrwy" ]];then
     if [[ -z "$ATF_REPO" ]];then ATF_REPO="https://github.com/ossdev07/atf.git"; fi #default ATF repo
     if [[ -z "$ATF_BRANCH" ]];then ATF_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #default ATF branch
     if [[ -z "$EDK2_REPO" ]];then EDK2_REPO="https://github.com/ossdev07/edk2.git"; fi #faultEDK2repo
-    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi #faultEDK2BRANCH
+    if [[ -z "$EDK2_BRANCH" ]];then EDK2_BRANCH="UEFI_ACPI_EAR1-PS"; fi #faultEDK2BRANCH
     if [[ -z "$EDK2PLAT_REPO" ]];then EDK2PLAT_REPO="https://github.com/ossdev07/edk2-platforms.git"; fi
-    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
+    if [[ -z "$EDK2PLAT_BRANCH" ]];then EDK2PLAT_BRANCH="UEFI_ACPI_EAR1-PS"; fi
     if [[ -z "$MTDDRIVER_LINUX_ENABLE" ]];then MTDDRIVER_LINUX_ENABLE="NO"; fi
     if [[ -z "$EDK2NONOSI_REPO" ]];then EDK2NONOSI_REPO="https://github.com/ossdev07/edk2-non-osi.git"; fi
     if [[ -z "$EDK2NONOSI_BRANCH" ]];then EDK2NONOSI_BRANCH="UEFI_ACPI_EAR1-PS-Devel"; fi
